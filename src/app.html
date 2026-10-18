@@ -1,0 +1,818 @@
+<title>明智選擇</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;800&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: a single-column "decision ledger" — profile in, ranked plan out, tracker to follow through. */
+:root {
+  --bg: #f4f6f2;
+  --surface: #ffffff;
+  --sunk: #e9ede7;
+  --ink: #17201c;
+  --muted: #5a6660;
+  --line: #d7ddd6;
+  --accent: #1d6f55;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe6;
+  --warn: #9a6512;
+  --warn-soft: #f6ead2;
+  --bad: #a83f35;
+  --bad-soft: #f6dfdb;
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-data: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1412; --surface: #161f1b; --sunk: #1d2823; --ink: #e4ebe7; --muted: #98a69f; --line: #2b3732;
+  --accent: #4dbb90; --accent-ink: #08130e; --accent-soft: #1b3a2e; --warn: #e0a64a; --warn-soft: #3a2e17;
+  --bad: #e8806f; --bad-soft: #3d1f1a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #161f1b; --sunk: #1d2823; --ink: #e4ebe7; --muted: #98a69f; --line: #2b3732;
+  --accent: #4dbb90; --accent-ink: #08130e; --accent-soft: #1b3a2e; --warn: #e0a64a; --warn-soft: #3a2e17;
+  --bad: #e8806f; --bad-soft: #3d1f1a; color-scheme: dark }
+
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { background: var(--bg); color: var(--ink) }
+body { font-family: var(--font-body); font-size: 15px; line-height: 1.65; margin: 0 }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg) }
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line) }
+.brand { display: flex; align-items: baseline; gap: 10px; padding-block: 14px 6px }
+.brand h1 { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 0; letter-spacing: .04em }
+.brand .mode { font-size: 12px; color: var(--muted) }
+nav.tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px }
+nav.tabs button { flex: 0 0 auto; border: 1px solid transparent; background: none; color: var(--muted); font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 999px; cursor: pointer }
+nav.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg) }
+nav.tabs button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+section.view { display: grid; gap: 18px; padding-top: 18px }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 19px; margin: 0; text-wrap: balance }
+h3 { font-size: 15px; margin: 0 }
+p { margin: 0 }
+.muted { color: var(--muted) }
+.small { font-size: 13px }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0 }
+.note { background: var(--warn-soft); color: var(--ink); border-radius: var(--r); padding: 12px 14px; font-size: 13.5px; display: grid; gap: 6px }
+.note strong { color: var(--warn) }
+.label { font-size: 11.5px; letter-spacing: .08em; color: var(--muted); font-weight: 700 }
+
+/* form */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px }
+.field { display: grid; gap: 4px; min-width: 0 }
+.field label { font-size: 13px; font-weight: 500 }
+.field .hint { font-size: 12px; color: var(--muted) }
+input[type=text], input[type=password], select, textarea { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px }
+textarea { min-height: 76px; resize: vertical }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chips label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13.5px; cursor: pointer; background: var(--bg) }
+.chips input { accent-color: var(--accent) }
+.chips label:has(input:checked) { background: var(--accent-soft); border-color: var(--accent) }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+button.btn { font: inherit; font-size: 15px; font-weight: 700; border-radius: 8px; padding: 10px 16px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer }
+button.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500 }
+button.btn:disabled { opacity: .5; cursor: default }
+
+/* progress */
+.log { font-family: var(--font-data); font-size: 12.5px; background: var(--sunk); border-radius: 8px; padding: 10px 12px; max-height: 220px; overflow-y: auto; display: grid; gap: 2px; min-width: 0 }
+.log div { overflow-wrap: anywhere }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; display: inline-block }
+@keyframes spin { to { transform: rotate(360deg) } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none } }
+
+/* report */
+.summary { font-size: 16px; line-height: 1.75 }
+ol.plain, ul.plain { margin: 0; padding-left: 1.3em; display: grid; gap: 6px }
+.rec { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden }
+.rec > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: start }
+.rec > summary::-webkit-details-marker { display: none }
+.rank { font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1; color: var(--accent); grid-row: span 2; font-variant-numeric: tabular-nums; min-width: 1.4em }
+.rec-title { font-weight: 700; font-size: 16px }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px }
+.pill { border-radius: 999px; padding: 1px 9px; background: var(--sunk); color: var(--ink); white-space: nowrap }
+.pill.low { background: var(--accent-soft) }
+.pill.mid { background: var(--warn-soft) }
+.pill.high { background: var(--bad-soft) }
+.conf { display: inline-flex; align-items: center; gap: 6px }
+.bar { width: 54px; height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; display: inline-block }
+.bar i { display: block; height: 100%; background: var(--accent) }
+.rec-body { border-top: 1px solid var(--line); padding: 14px 16px; display: grid; gap: 14px }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px }
+.kv > div { background: var(--sunk); border-radius: 8px; padding: 9px 11px; display: grid; gap: 2px; min-width: 0 }
+.kv b { font-size: 11.5px; color: var(--muted); letter-spacing: .06em; font-weight: 700 }
+.srcref { font-family: var(--font-data); font-size: 12px; color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent) }
+.src { display: grid; gap: 2px; padding: 10px 0; border-top: 1px solid var(--line); min-width: 0 }
+.src:first-child { border-top: 0 }
+.src a { color: var(--accent); overflow-wrap: anywhere }
+.badge { font-size: 11px; border-radius: 4px; padding: 0 6px; background: var(--sunk); color: var(--muted) }
+.badge.ok { background: var(--accent-soft); color: var(--ink) }
+.avoid { border-left: 3px solid var(--bad); padding-left: 10px; display: grid; gap: 2px }
+.empty { text-align: center; padding: 28px 16px; color: var(--muted); display: grid; gap: 10px; justify-items: center }
+
+/* tracker */
+.track { display: grid; gap: 8px }
+.track label { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; cursor: pointer }
+.track input { margin-top: 5px; accent-color: var(--accent); width: 17px; height: 17px; flex: 0 0 auto }
+.track label:has(input:checked) span { color: var(--muted); text-decoration: line-through }
+.progress { height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden }
+.progress i { display: block; height: 100%; background: var(--accent) }
+.hist button { text-align: left; width: 100% }
+</style>
+<!--PWA-HEAD-->
+
+<header class="top">
+  <div class="wrap" style="padding-block:0">
+    <div class="brand"><h1>明智選擇</h1><span class="mode" id="modeLabel"></span></div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-view="profile" aria-selected="true" id="tab-profile">我的處境</button>
+      <button role="tab" data-view="report" aria-selected="false" id="tab-report">分析報告</button>
+      <button role="tab" data-view="track" aria-selected="false" id="tab-track">實踐追蹤</button>
+      <button role="tab" data-view="settings" aria-selected="false" id="tab-settings">設定與說明</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- PROFILE -->
+  <section class="view" id="view-profile">
+    <div class="panel">
+      <h2>告訴我你的處境，我會為你排出最值得做的事</h2>
+      <p class="muted small">流程：搜尋你所在地區的公開資料 → 列出候選行動 → 逐一檢查來源的利益衝突與邏輯 → 按你的條件和風險偏好排名 → 第二輪獨立審查。資料只存在你的手機上，分析時才會傳送給 AI。</p>
+      <div class="note" id="engineNote"></div>
+    </div>
+
+    <form id="profileForm" class="panel" autocomplete="off">
+      <div class="row" style="justify-content:space-between"><h2>基本資料</h2><button type="button" class="btn ghost" id="loadExample">填入示例（虛構人物）</button></div>
+      <div class="grid2">
+        <div class="field"><label for="f-region">所在地區（城市／國家）</label><input type="text" id="f-region" name="region" placeholder="例：香港、台北、溫哥華" required></div>
+        <div class="field"><label for="f-age">年齡</label><select id="f-age" name="age"><option value="">請選擇</option><option>18–24</option><option>25–29</option><option>30–34</option><option>35–39</option><option>40–44</option><option>45–49</option><option>50–54</option><option>55–59</option><option>60–64</option><option>65 或以上</option></select></div>
+        <div class="field"><label for="f-edu">最高學歷</label><select id="f-edu" name="education"><option value="">請選擇</option><option>中學或以下</option><option>文憑／副學士</option><option>學士</option><option>碩士</option><option>博士</option><option>專業資格</option></select></div>
+        <div class="field"><label for="f-job">現職／行業與年資</label><input type="text" id="f-job" name="job" placeholder="例：會計，8 年；或 待業"></div>
+        <div class="field"><label for="f-income">每月稅前收入（當地貨幣）</label><input type="text" id="f-income" name="income" placeholder="例：HK$32,000"></div>
+        <div class="field"><label for="f-assets">可動用儲蓄／資產</label><input type="text" id="f-assets" name="assets" placeholder="例：約 HK$200,000，無物業"></div>
+        <div class="field"><label for="f-debt">負債與固定支出</label><input type="text" id="f-debt" name="debt" placeholder="例：無；或 學債每月 3,000"></div>
+        <div class="field"><label for="f-family">家庭狀況／受養人</label><input type="text" id="f-family" name="family" placeholder="例：已婚，一名 3 歲子女"></div>
+        <div class="field"><label for="f-time">每週可投入時間</label><select id="f-time" name="time"><option value="">請選擇</option><option>少於 3 小時</option><option>3–6 小時</option><option>7–12 小時</option><option>13–20 小時</option><option>20 小時以上（可全職投入）</option></select></div>
+        <div class="field"><label for="f-health">健康與精力</label><select id="f-health" name="health"><option value="">請選擇</option><option>良好</option><option>一般</option><option>有長期病患或限制</option></select></div>
+        <div class="field"><label for="f-lang">語言能力</label><input type="text" id="f-lang" name="languages" placeholder="例：粵語、英語流利、普通話一般"></div>
+        <div class="field"><label for="f-status">身份／移居彈性</label><input type="text" id="f-status" name="mobility" placeholder="例：只有本地身份；可考慮移居"></div>
+      </div>
+      <div class="field"><label for="f-strengths">技能、優勢與資源</label><textarea id="f-strengths" name="strengths" placeholder="例：Excel 和數據整理很強；有一批中小企客戶人脈；擅長寫作；家人可幫忙照顧小孩"></textarea></div>
+      <div class="field"><label for="f-situation">目前處境、困擾或已在考慮的選擇</label><textarea id="f-situation" name="situation" placeholder="例：工作穩定但升遷停滯，正在考慮讀碩士或轉行做數據分析"></textarea></div>
+
+      <h2>目標與取向</h2>
+      <div class="field"><span class="label">最重視的目標（可多選，按重要性勾選）</span>
+        <div class="chips" id="goals">
+          <label><input type="checkbox" name="goals" value="財務自由"> 財務自由</label>
+          <label><input type="checkbox" name="goals" value="事業與向上流動"> 事業與向上流動</label>
+          <label><input type="checkbox" name="goals" value="幸福感與人生意義"> 幸福感與人生意義</label>
+          <label><input type="checkbox" name="goals" value="健康"> 健康</label>
+          <label><input type="checkbox" name="goals" value="家庭與人際關係"> 家庭與人際關係</label>
+          <label><input type="checkbox" name="goals" value="生活穩定與安全感"> 生活穩定與安全感</label>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="f-risk">風險偏好</label><select id="f-risk" name="risk"><option value="低">低：寧可少賺也不想虧</option><option value="中" selected>中：願意承受可控的波動</option><option value="高">高：可接受較大失敗以換取上行空間</option></select></div>
+        <div class="field"><label for="f-horizon">主要時間視野</label><select id="f-horizon" name="horizon"><option>1 年內</option><option selected>1–3 年</option><option>3–10 年</option><option>10 年以上</option></select></div>
+      </div>
+      <div class="row"><button type="submit" class="btn" id="runBtn">開始分析</button><span class="muted small" id="runHint"></span></div>
+    </form>
+
+    <div class="panel" id="progressPanel" hidden>
+      <div class="row"><span class="spinner" id="spin"></span><h3 id="progressTitle">分析中</h3></div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="row"><button type="button" class="btn ghost" id="cancelBtn">停止</button></div>
+    </div>
+  </section>
+
+  <!-- REPORT -->
+  <section class="view" id="view-report" hidden>
+    <div id="reportArea"></div>
+  </section>
+
+  <!-- TRACK -->
+  <section class="view" id="view-track" hidden>
+    <div id="trackArea"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="view-settings" hidden>
+    <div class="panel" id="keyPanel">
+      <h2>即時網上搜尋（需要你自己的 API 金鑰）</h2>
+      <p class="small muted">安裝版會直接由你的手機連接 Anthropic 的 Claude API，並使用其網上搜尋工具。金鑰只保存在這部手機的瀏覽器內，不會傳送到其他地方。每次分析約進行 8–15 次搜尋，費用視模型與搜尋次數而定，請在 Anthropic Console 設定每月用量上限。</p>
+      <div class="field"><label for="s-key">Anthropic API 金鑰</label><input type="password" id="s-key" placeholder="sk-ant-..." autocomplete="off"></div>
+      <div class="grid2">
+        <div class="field"><label for="s-model">模型</label><select id="s-model"><option value="claude-opus-5-5">Claude Opus 5.5（最仔細，預設）</option><option value="claude-sonnet-5-5">Claude Sonnet 5.5（較便宜、較快）</option></select></div>
+        <div class="field"><label for="s-effort">思考深度</label><select id="s-effort"><option value="medium">中</option><option value="high" selected>高（預設）</option><option value="xhigh">很高（較慢、較貴）</option></select></div>
+      </div>
+      <div class="row"><button type="button" class="btn" id="saveKey">儲存</button><button type="button" class="btn ghost" id="clearKey">刪除金鑰</button><span class="small muted" id="keyMsg"></span></div>
+    </div>
+
+    <div class="panel">
+      <h2>這個應用程式做得到與做不到的事</h2>
+      <ul class="plain small">
+        <li>它不能搜尋「所有」公開資訊。每次分析只會檢索十多個搜尋結果，結論只會引用實際檢索到的頁面；未被檢索到的網址會被自動刪除，不會出現在報告中。</li>
+        <li>「置信度」是 AI 根據證據質素作出的推理估計，不是統計概率。數字只用來比較建議之間的把握程度。</li>
+        <li>每個來源都會標示類型（官方、智庫、學術、媒體、商業、網上輿論）及可能的利益衝突，例如院校推廣進修、金融機構推廣產品、培訓機構推廣課程。</li>
+        <li>它不會推介個別股票、基金或保險產品；涉及法律、稅務、移民或醫療的決定，請向持牌專業人士確認。</li>
+        <li>涉及政治或意識形態的選擇，它只分析對你個人的實際利弊與風險，不替你選邊。</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>安裝到手機</h2>
+      <ul class="plain small">
+        <li>iPhone：用 Safari 開啟網址 → 分享按鈕 → 「加入主畫面」。</li>
+        <li>Android：用 Chrome 開啟網址 → 右上角選單 → 「安裝應用程式」或「加至主畫面」。</li>
+      </ul>
+    </div>
+
+    <div class="panel hist">
+      <h2>過往報告</h2>
+      <div id="histList" class="track"></div>
+      <div class="row"><button type="button" class="btn ghost" id="clearData">清除本機所有資料</button><span class="small muted" id="clearMsg"></span></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- storage (per device; may be unavailable) ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('wc.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('wc.' + k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem('wc.' + k); } catch {} }
+};
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- engine detection ---------- */
+const IN_ARTIFACT = !!window.claude;
+let sample = null; // artifact engine (no web access)
+const engine = () => {
+  if (!IN_ARTIFACT && store.get('key', '')) return 'api';
+  if (sample) return 'sample';
+  return 'none';
+};
+function renderEngineNote() {
+  const e = engine();
+  const note = $('#engineNote');
+  if (e === 'api') {
+    $('#modeLabel').textContent = '即時搜尋模式';
+    note.innerHTML = '<strong>即時搜尋模式</strong><span>分析時會實際搜尋網上公開資料，報告只引用檢索到的頁面。一次完整分析通常需時數分鐘。</span>';
+  } else if (e === 'sample') {
+    $('#modeLabel').textContent = '試用模式';
+    note.innerHTML = '<strong>試用模式：沒有即時網上搜尋</strong><span>在 claude.ai 內開啟時，AI 不能上網，只能用其既有知識推理。報告不會列出網址，所有數據都標示為「需自行核實」。需要真正的網上研究，請使用安裝版並在「設定與說明」輸入 API 金鑰。</span>';
+  } else {
+    $('#modeLabel').textContent = '';
+    note.innerHTML = IN_ARTIFACT
+      ? '<strong>正在連接 Claude…</strong><span>若持續未能連接，請重新整理頁面。</span>'
+      : '<strong>尚未設定</strong><span>請先到「設定與說明」輸入你的 Anthropic API 金鑰，才可開始分析。</span>';
+  }
+  $('#keyPanel').hidden = IN_ARTIFACT;
+  $('#runBtn').disabled = e === 'none';
+}
+if (IN_ARTIFACT) {
+  window.claude.use('sample').then(s => { sample = s; renderEngineNote(); }).catch(() => renderEngineNote());
+}
+
+/* ---------- tabs ---------- */
+function show(view) {
+  for (const b of document.querySelectorAll('nav.tabs button')) b.setAttribute('aria-selected', String(b.dataset.view === view));
+  for (const s of document.querySelectorAll('section.view')) s.hidden = s.id !== 'view-' + view;
+  if (view === 'track') renderTrack();
+  if (view === 'settings') renderHistory();
+  store.set('tab', view);
+  window.scrollTo({ top: 0 });
+}
+for (const b of document.querySelectorAll('nav.tabs button')) b.addEventListener('click', () => show(b.dataset.view));
+
+/* ---------- profile ---------- */
+const form = $('#profileForm');
+function readProfile() {
+  const fd = new FormData(form);
+  const p = {};
+  for (const [k, v] of fd.entries()) {
+    if (k === 'goals') (p.goals ||= []).push(v); else p[k] = String(v).trim();
+  }
+  return p;
+}
+function writeProfile(p) {
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.name === 'goals') el.checked = (p.goals || []).includes(el.value);
+    else if (p[el.name] != null) el.value = p[el.name];
+  }
+}
+form.addEventListener('input', () => store.set('profile', readProfile()));
+writeProfile(store.get('profile', {}));
+$('#loadExample').addEventListener('click', () => {
+  writeProfile({
+    region: '香港', age: '30–34', education: '學士', job: '中型物流公司行政主任，7 年', income: 'HK$28,000',
+    assets: '約 HK$180,000 現金，無物業', debt: '無負債；每月家用 HK$6,000', family: '未婚，與父母同住',
+    time: '7–12 小時', health: '良好', languages: '粵語、英語中上、普通話一般', mobility: '只有香港身份，暫不考慮移居',
+    strengths: '熟悉 Excel 和排程系統；做事有條理；與供應商溝通經驗多',
+    situation: '工作穩定但薪酬多年未有明顯上升；在考慮讀兼讀碩士、考專業證書，或學數據分析轉行',
+    goals: ['財務自由', '事業與向上流動', '生活穩定與安全感'], risk: '中', horizon: '1–3 年'
+  });
+  store.set('profile', readProfile());
+});
+
+/* ---------- prompts ---------- */
+const METHOD = `你是一位獨立、嚴謹、不推銷任何產品的個人策略分析師。你的唯一立場是用戶本人的長遠利益。所有輸出用繁體中文。
+
+工作原則：
+1. 以現實與前景為依歸。不迎合主流說法、權威機構或任何意識形態；如果一個常見建議對這位用戶並不划算，把它放進 avoid（不建議）清單並說明原因。
+2. 利益衝突檢查：對每個來源與每個建議，問「誰從這個建議中得益？」例如院校推廣進修、銀行或保險公司推廣理財產品、培訓機構或網紅推廣課程、地產相關機構推廣置業、政府部門宣傳政策成效。有利益衝突不代表錯，但要降低權重並說明。
+3. 邏輯檢驗：考慮機會成本、基準率（一般人做這件事的實際結果分佈，而非成功案例）、倖存者偏差、可逆性、最壞情況、與用戶時間和資金限制是否相符。
+4. 嚴禁捏造：不可虛構數字、機構、報告標題、日期或網址。沒有可靠資料就寫「未找到可靠資料」並降低置信度。推理得出的判斷要寫明是推理。
+5. 置信度（0–100）是你根據證據質素和一致性作出的推理估計，不是統計概率；必須寫出理由。
+6. 不推介個別股票、基金、保險或具體金融產品；財務建議停留在策略原則層面。涉及法律、稅務、移民、醫療的決定，提醒用戶向持牌專業人士確認。
+7. 涉及政治或意識形態的選擇，只分析對用戶個人的實際利弊、法律風險與機會成本，不替用戶選邊。
+8. 建議要具體到用戶下星期就可以開始做的程度，並按用戶的風險偏好、目標次序與時間視野排名。`;
+
+const SCHEMA = `只輸出一個 JSON 物件（放在 \`\`\`json 程式碼區塊內），結構如下：
+{
+  "summary": "三至五句總結：用戶目前最值得做的事與原因",
+  "situation": [{"point": "與用戶相關的地區處境重點", "source_urls": ["支持這點的網址"]}],
+  "assumptions": ["分析所依賴的前設，例如假設收入穩定、假設未來兩年利率大致不變"],
+  "recommendations": [{
+    "rank": 1,
+    "title": "建議名稱",
+    "domain": "事業／財務／技能／健康／關係／生活 其中之一",
+    "why": "為什麼這對此用戶最有利（含機會成本比較）",
+    "steps": ["第一步……", "第二步……"],
+    "time_investment": "預期投入：每週多少小時、持續多久、金錢成本",
+    "payoff_horizon": "多久開始見效、收成期多長",
+    "stop_loss": "止蝕點：投入超過多少時間或金錢仍未見某個具體指標就應停止或調整",
+    "best_for": "什麼背景或處境的人最適合",
+    "not_for": "什麼情況下不應做",
+    "optimal_conditions": "此建議成為最佳選擇所需的條件",
+    "risk_level": "低｜中｜高",
+    "suited_risk_preference": "低｜中｜高",
+    "risk_reward": "風險與回報比例的文字描述，例如：下行有限（損失約 X 個月業餘時間），上行為……",
+    "confidence": 70,
+    "confidence_reason": "置信度理由",
+    "conflicts_of_interest": "相關來源或主流說法中的利益衝突",
+    "counterarguments": "最強的反對理由",
+    "adherence_tips": ["如何持之以恆的具體做法"],
+    "cost_saving_tips": ["如何節省成本、取得預期效用的做法"],
+    "source_urls": ["支持此建議的網址"]
+  }],
+  "avoid": [{"title": "常見但對此用戶不划算的選擇", "reason": "原因"}],
+  "general_adherence": ["適用於所有建議的持續執行方法"],
+  "sources": [{"url": "網址", "title": "標題", "publisher": "發布者", "type": "官方｜智庫｜學術｜媒體｜商業｜網上輿論", "coi_note": "可能的利益衝突或可靠度備註"}],
+  "verify_list": ["用戶應自行核實的資料"],
+  "limitations": ["這份分析的局限"]
+}
+recommendations 給 5 至 8 項，按對此用戶的整體價值排序。`;
+
+function profileText(p) {
+  const L = [
+    ['所在地區', p.region], ['年齡', p.age], ['學歷', p.education], ['職業與年資', p.job], ['每月收入', p.income],
+    ['可動用資產', p.assets], ['負債與固定支出', p.debt], ['家庭狀況', p.family], ['每週可投入時間', p.time],
+    ['健康與精力', p.health], ['語言', p.languages], ['身份與移居彈性', p.mobility], ['技能優勢與資源', p.strengths],
+    ['目前處境與考慮', p.situation], ['目標（按重要性）', (p.goals || []).join('、')], ['風險偏好', p.risk], ['時間視野', p.horizon]
+  ];
+  return L.map(([k, v]) => `- ${k}：${v || '（未提供）'}`).join('\n');
+}
+
+function pass1Prompt(p, mode) {
+  const today = new Date().toISOString().slice(0, 10);
+  const research = mode === 'api'
+    ? `今天是 ${today}。請先用網上搜尋工具研究（約 8 至 15 次搜尋），範圍包括：用戶所在地區最新的就業市場與薪酬、用戶行業前景、生活成本與住屋、利率與通脹、政府資助或培訓計劃、與用戶正在考慮的選擇相關的實證（例如進修的實際回報、轉行成功率）、以及網上討論區的真實經驗（只作輔助，權重較低）。優先使用官方統計、學術研究與獨立智庫；記下每個來源的發布者與利益衝突。只可在 source_urls 與 sources 中列出你實際搜尋到的網址。`
+    : `你現在無法上網。只能使用你既有的知識推理。規則：source_urls 和 sources 一律留空陣列；不可聲稱引用了某份報告的具體數字；凡涉及數據的判斷都要寫明「基於模型既有知識，未經即時核實」；在 verify_list 詳細列出用戶應自行查核的公開資料（可寫出負責發布該類資料的機構類型或常見的官方統計部門）。置信度要相應調低。`;
+  return `${METHOD}\n\n${research}\n\n用戶資料：\n${profileText(p)}\n\n${SCHEMA}`;
+}
+
+function pass2Prompt(p, draft, sources, mode) {
+  const srcList = sources.length
+    ? sources.map(s => `[${s.id}] ${s.title || ''}｜${s.publisher || ''}｜${s.type || ''}｜${s.url}`).join('\n')
+    : '（沒有已檢索的來源）';
+  return `${METHOD}
+
+你現在是獨立審稿人，要審查另一位分析師為以下用戶寫的初稿。逐項檢查：
+- 每個建議是否有來源支持，或清楚標明是推理；沒有支持而置信度偏高的，要調低。
+- 是否遺漏了利益衝突（例如來源本身在推銷該選擇）。
+- 是否違反用戶的時間、金錢、健康、家庭限制，或與其風險偏好不符；排名是否需要調整。
+- 步驟是否具體到下星期可以開始；止蝕點是否有可量度的指標。
+- 是否有倖存者偏差、忽略機會成本、或把相關當因果的推論。
+- 有沒有更好的選擇被遺漏；有的話可加入，但必須標明是推理而非資料支持。
+${mode === 'api' ? '' : '- 初稿是在沒有網上搜尋的情況下寫成的；確保沒有任何網址或聲稱已核實的數字。'}
+
+用戶資料：
+${profileText(p)}
+
+已檢索並核實存在的來源（只可用這些編號引用，不可新增來源）：
+${srcList}
+
+初稿（JSON）：
+${JSON.stringify(draft)}
+
+請輸出修訂後的完整 JSON（放在 \`\`\`json 程式碼區塊內），結構與初稿相同，但：
+- recommendations 及 situation 中以 "source_ids": [編號] 取代 source_urls；
+- 不要輸出 sources 欄位；
+- 加入 "review_notes": ["你改了什麼及原因"]。`;
+}
+
+/* ---------- JSON extraction ---------- */
+function extractJSON(text) {
+  const fences = [...text.matchAll(/```json\s*([\s\S]*?)```/g)];
+  const candidates = fences.length ? fences.map(m => m[1]).reverse() : [];
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a >= 0 && b > a) candidates.push(text.slice(a, b + 1));
+  for (const c of candidates) { try { return JSON.parse(c); } catch {} }
+  throw new Error('未能讀取 AI 回覆的格式，請再試一次。');
+}
+
+/* ---------- source verification ---------- */
+function normUrl(u) {
+  try {
+    const x = new URL(u);
+    if (!/^https?:$/.test(x.protocol)) return null;
+    return (x.hostname.replace(/^www\./, '') + x.pathname.replace(/\/+$/, '') + x.search).toLowerCase();
+  } catch { return null; }
+}
+function normNoQuery(u) { const n = normUrl(u); return n ? n.split('?')[0] : null; }
+
+function verifySources(draft, retrieved) {
+  // retrieved: Map(normUrl -> {url,title,page_age})
+  const byNoQ = new Map();
+  for (const [k, v] of retrieved) byNoQ.set(k.split('?')[0], v);
+  const find = u => retrieved.get(normUrl(u)) || byNoQ.get(normNoQuery(u)) || null;
+  const meta = new Map();
+  for (const s of draft.sources || []) { const n = normUrl(s.url); if (n) meta.set(n, s); }
+  const list = []; const idOf = new Map(); let dropped = 0;
+  const idFor = u => {
+    const hit = find(u);
+    if (!hit) { dropped++; return null; }
+    const key = normUrl(hit.url);
+    if (!idOf.has(key)) {
+      const m = meta.get(normUrl(u)) || meta.get(key) || {};
+      const id = list.length + 1;
+      list.push({ id, url: hit.url, title: hit.title || m.title || hit.url, publisher: m.publisher || '', type: m.type || '', coi_note: m.coi_note || '', page_age: hit.page_age || '' });
+      idOf.set(key, id);
+    }
+    return idOf.get(key);
+  };
+  const conv = arr => [...new Set((arr || []).map(idFor).filter(Boolean))];
+  for (const s of draft.situation || []) { s.source_ids = conv(s.source_urls); delete s.source_urls; }
+  for (const r of draft.recommendations || []) { r.source_ids = conv(r.source_urls); delete r.source_urls; }
+  for (const s of draft.sources || []) idFor(s.url); // keep retrieved sources the model listed
+  dropped = Math.max(0, dropped);
+  delete draft.sources;
+  return { sources: list, dropped };
+}
+
+/* ---------- Claude API (installed version) ---------- */
+async function streamOnce(body, onEvent, signal) {
+  const key = store.get('key', '');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', signal,
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'server-side-fallback-2026-07-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); msg = j.error?.message || msg; } catch {}
+    if (res.status === 401) msg = 'API 金鑰無效，請到「設定與說明」檢查。';
+    if (res.status === 429) msg = '請求太頻繁或已達用量上限，請稍後再試。';
+    if (res.status === 529 || res.status >= 500) msg = 'Anthropic 服務暫時繁忙，請稍後再試。';
+    throw new Error(msg);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  const blocks = []; const partial = {};
+  let stop = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+      const dataLine = chunk.split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).join('');
+      if (!dataLine) continue;
+      let ev; try { ev = JSON.parse(dataLine); } catch { continue; }
+      if (ev.type === 'content_block_start') {
+        blocks[ev.index] = structuredClone(ev.content_block);
+        if (ev.content_block.type === 'server_tool_use' || ev.content_block.type === 'tool_use') partial[ev.index] = '';
+        onEvent?.({ kind: 'start', block: ev.content_block });
+      } else if (ev.type === 'content_block_delta') {
+        const b = blocks[ev.index], d = ev.delta;
+        if (d.type === 'text_delta') { b.text = (b.text || '') + d.text; onEvent?.({ kind: 'text', text: d.text }); }
+        else if (d.type === 'input_json_delta') partial[ev.index] += d.partial_json;
+        else if (d.type === 'thinking_delta') b.thinking = (b.thinking || '') + d.thinking;
+        else if (d.type === 'signature_delta') b.signature = d.signature;
+        else if (d.type === 'citations_delta') (b.citations ||= []).push(d.citation);
+      } else if (ev.type === 'content_block_stop') {
+        if (partial[ev.index] != null) {
+          try { blocks[ev.index].input = partial[ev.index] ? JSON.parse(partial[ev.index]) : {}; } catch { blocks[ev.index].input = {}; }
+          onEvent?.({ kind: 'tool', block: blocks[ev.index] });
+          delete partial[ev.index];
+        }
+      } else if (ev.type === 'message_delta') {
+        if (ev.delta?.stop_reason) stop = ev.delta.stop_reason;
+      } else if (ev.type === 'error') {
+        throw new Error(ev.error?.message || 'AI 服務出錯，請再試一次。');
+      }
+    }
+  }
+  return { blocks: blocks.filter(Boolean), stop };
+}
+
+async function runApi(prompt, { search, onEvent, signal }) {
+  const model = store.get('model', 'claude-opus-5-5');
+  const messages = [{ role: 'user', content: prompt }];
+  const retrieved = new Map();
+  let text = '';
+  for (let turn = 0; turn < 6; turn++) {
+    const body = {
+      model, max_tokens: 32000, stream: true,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: store.get('effort', 'high') },
+      fallbacks: 'default',
+      messages
+    };
+    if (search) body.tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: 15 }];
+    const { blocks, stop } = await streamOnce(body, onEvent, signal);
+    for (const b of blocks) {
+      if (b.type === 'text') {
+        text += b.text || '';
+        for (const c of b.citations || []) if (c.url) { const n = normUrl(c.url); if (n && !retrieved.has(n)) retrieved.set(n, { url: c.url, title: c.title }); }
+      }
+      if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) {
+        for (const r of b.content) if (r.type === 'web_search_result' && r.url) { const n = normUrl(r.url); if (n) retrieved.set(n, { url: r.url, title: r.title, page_age: r.page_age }); }
+        onEvent?.({ kind: 'results', count: b.content.length });
+      }
+    }
+    if (stop === 'refusal') throw new Error('AI 拒絕處理這個請求。請調整資料中可能引起誤會的字眼後再試。');
+    if (stop === 'pause_turn') { messages.push({ role: 'assistant', content: blocks }); continue; }
+    if (stop === 'max_tokens') throw new Error('回覆太長被截斷，請在設定把思考深度調低後再試。');
+    return { text, retrieved };
+  }
+  throw new Error('搜尋步驟過多，請再試一次。');
+}
+
+async function runSample(prompt, { onText, signal }) {
+  const r = await sample(prompt, { modelTier: 'complex', cache: false, signal, onText: onText ? ({ text }) => onText(text) : undefined });
+  return { text: r.text, retrieved: new Map() };
+}
+
+/* ---------- run analysis ---------- */
+let controller = null;
+function log(msg) { const d = document.createElement('div'); d.textContent = msg; $('#log').append(d); $('#log').scrollTop = 1e9; }
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const p = readProfile();
+  if (!p.region) { $('#runHint').textContent = '請至少填寫所在地區。'; return; }
+  if (!(p.goals || []).length) { $('#runHint').textContent = '請至少選一個目標。'; return; }
+  $('#runHint').textContent = '';
+  const mode = engine();
+  if (mode === 'none') return;
+  controller = new AbortController();
+  const signal = controller.signal;
+  $('#progressPanel').hidden = false; $('#log').textContent = ''; $('#spin').hidden = false;
+  $('#runBtn').disabled = true; $('#progressTitle').textContent = '第一輪：研究與初稿';
+  $('#progressPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try {
+    let r1;
+    if (mode === 'api') {
+      log('開始搜尋公開資料……');
+      let chars = 0;
+      r1 = await runApi(pass1Prompt(p, mode), {
+        search: true, signal,
+        onEvent: ev => {
+          if (ev.kind === 'tool' && ev.block.name === 'web_search') log('搜尋：' + (ev.block.input?.query || ''));
+          if (ev.kind === 'results') log(`  取得 ${ev.count} 個結果`);
+          if (ev.kind === 'text') { const before = chars; chars += ev.text.length; if (Math.floor(before / 1500) !== Math.floor(chars / 1500)) log(`撰寫初稿中（${chars} 字）`); }
+        }
+      });
+      log(`共檢索 ${r1.retrieved.size} 個不同網頁。`);
+    } else {
+      log('試用模式：沒有網上搜尋，以既有知識推理。');
+      let last = 0;
+      r1 = await runSample(pass1Prompt(p, mode), { signal, onText: t => { if (t.length - last > 1500) { last = t.length; log(`撰寫初稿中（${t.length} 字）`); } } });
+    }
+    const draft = extractJSON(r1.text);
+    const { sources, dropped } = verifySources(draft, r1.retrieved);
+    log(`核實來源：保留 ${sources.length} 個${dropped ? `，刪除 ${dropped} 個未經檢索的引用` : ''}。`);
+
+    $('#progressTitle').textContent = '第二輪：獨立審查';
+    log('進行邏輯、利益衝突與置信度審查……');
+    let r2;
+    const p2 = pass2Prompt(p, draft, sources, mode);
+    if (mode === 'api') r2 = await runApi(p2, { search: false, signal, onEvent: () => {} });
+    else r2 = await runSample(p2, { signal });
+    let final;
+    try { final = extractJSON(r2.text); }
+    catch { final = draft; (final.review_notes ||= []).push('審查輪未能完成，以下為未經審查的初稿。'); }
+    const validIds = new Set(sources.map(s => s.id));
+    let removedRefs = 0;
+    const clean = arr => (arr || []).filter(id => { const ok = validIds.has(id); if (!ok) removedRefs++; return ok; });
+    for (const s of final.situation || []) { s.source_ids = clean(s.source_ids); delete s.source_urls; }
+    for (const r of final.recommendations || []) { r.source_ids = clean(r.source_ids); delete r.source_urls; }
+    delete final.sources;
+    (final.recommendations || []).sort((a, b) => (a.rank || 99) - (b.rank || 99));
+
+    const report = {
+      id: 'r' + Date.now(), created: new Date().toISOString(), mode,
+      model: mode === 'api' ? store.get('model', 'claude-opus-5-5') : 'claude.ai',
+      profile: p, result: final, sources, droppedRefs: dropped + removedRefs, searched: r1.retrieved.size
+    };
+    const hist = store.get('history', []);
+    hist.unshift(report); store.set('history', hist.slice(0, 12));
+    store.set('current', report.id);
+    log('完成。');
+    $('#progressPanel').hidden = true;
+    renderReport(); show('report');
+  } catch (err) {
+    $('#spin').hidden = true;
+    $('#progressTitle').textContent = signal.aborted ? '已停止' : '未能完成';
+    const code = err?.code;
+    let msg = err?.message || String(err);
+    if (code === 'not_granted') msg = '你未有允許此頁面使用 Claude。可在頁面的權限設定中重新允許。';
+    if (code === 'rate_limited') msg = '使用次數暫時達上限，請稍後再試。';
+    if (!signal.aborted) log('錯誤：' + msg);
+  } finally {
+    $('#runBtn').disabled = engine() === 'none';
+    controller = null;
+  }
+});
+$('#cancelBtn').addEventListener('click', () => { controller?.abort(); });
+
+/* ---------- report rendering ---------- */
+function currentReport() {
+  const id = store.get('current', null);
+  const hist = store.get('history', []);
+  return hist.find(r => r.id === id) || hist[0] || null;
+}
+const riskCls = v => ({ '低': 'low', '中': 'mid', '高': 'high' }[String(v || '').trim()] || '');
+function refs(ids, sources) {
+  if (!ids || !ids.length) return '';
+  return ' ' + ids.map(id => { const s = sources.find(x => x.id === id); return s ? `<a class="srcref" href="#src-${id}">[${id}]</a>` : ''; }).join(' ');
+}
+const list = arr => (arr && arr.length) ? `<ul class="plain">${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted small">（未提供）</p>';
+
+function renderReport() {
+  const area = $('#reportArea');
+  const rep = currentReport();
+  if (!rep) {
+    area.innerHTML = `<div class="panel empty"><h2>還沒有報告</h2><p>在「我的處境」填寫資料並按「開始分析」，排好序的建議會顯示在這裏。</p><button class="btn" type="button" id="goProfile">去填寫</button></div>`;
+    $('#goProfile').addEventListener('click', () => show('profile'));
+    return;
+  }
+  const R = rep.result, S = rep.sources || [];
+  const date = new Date(rep.created).toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' });
+  const modeNote = rep.mode === 'api'
+    ? `即時搜尋模式｜檢索 ${rep.searched} 個網頁，引用 ${S.length} 個${rep.droppedRefs ? `｜已刪除 ${rep.droppedRefs} 個未經檢索的引用` : ''}`
+    : '試用模式｜沒有即時網上搜尋，所有數據需自行核實';
+  const recs = (R.recommendations || []).map((r, i) => `
+    <details class="rec" ${i === 0 ? 'open' : ''}>
+      <summary>
+        <span class="rank">${esc(r.rank ?? i + 1)}</span>
+        <span class="rec-title">${esc(r.title)}</span>
+        <span class="meta">
+          <span class="pill">${esc(r.domain || '')}</span>
+          <span class="pill ${riskCls(r.risk_level)}">風險 ${esc(r.risk_level || '?')}</span>
+          <span class="pill">適合風險偏好 ${esc(r.suited_risk_preference || '?')}</span>
+          <span class="pill conf">置信度 ${esc(r.confidence ?? '?')}<span class="bar"><i style="width:${Math.max(0, Math.min(100, Number(r.confidence) || 0))}%"></i></span></span>
+        </span>
+      </summary>
+      <div class="rec-body">
+        <p>${esc(r.why)}${refs(r.source_ids, S)}</p>
+        <div><div class="label">具體步驟</div><ol class="plain">${(r.steps || []).map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
+        <div class="kv">
+          <div><b>預期投入</b><span>${esc(r.time_investment)}</span></div>
+          <div><b>見效與收成期</b><span>${esc(r.payoff_horizon)}</span></div>
+          <div><b>止蝕點</b><span>${esc(r.stop_loss)}</span></div>
+          <div><b>風險與回報</b><span>${esc(r.risk_reward)}</span></div>
+          <div><b>最適合</b><span>${esc(r.best_for)}</span></div>
+          <div><b>不適合</b><span>${esc(r.not_for)}</span></div>
+          <div><b>成為最佳選擇的條件</b><span>${esc(r.optimal_conditions)}</span></div>
+          <div><b>置信度理由</b><span>${esc(r.confidence_reason)}</span></div>
+        </div>
+        <div><div class="label">利益衝突</div><p>${esc(r.conflicts_of_interest)}</p></div>
+        <div><div class="label">最強反對理由</div><p>${esc(r.counterarguments)}</p></div>
+        <div><div class="label">如何持之以恆</div>${list(r.adherence_tips)}</div>
+        <div><div class="label">節省成本的做法</div>${list(r.cost_saving_tips)}</div>
+      </div>
+    </details>`).join('');
+
+  area.innerHTML = `
+    <div class="panel">
+      <div class="label">${esc(date)}｜${esc(rep.profile.region || '')}</div>
+      <p class="summary">${esc(R.summary)}</p>
+      <p class="small muted">${esc(modeNote)}</p>
+      <div class="row"><button type="button" class="btn ghost" id="copyReport">複製全文</button><span class="small muted" id="copyMsg"></span></div>
+    </div>
+    ${rep.mode !== 'api' ? '<div class="note"><strong>這份報告沒有經過網上搜尋</strong><span>內容只基於 AI 既有知識，可能過時。請先核實下面「需自行核實」一節的資料，再作決定。</span></div>' : ''}
+    <div class="panel"><h2>你的處境</h2><ul class="plain">${(R.situation || []).map(s => `<li>${esc(s.point)}${refs(s.source_ids, S)}</li>`).join('') || '<li class="muted">（未提供）</li>'}</ul></div>
+    <h2>推薦行動排名</h2>
+    ${recs || '<p class="muted">（沒有建議）</p>'}
+    <div class="panel"><h2>不建議的常見選擇</h2>${(R.avoid || []).map(a => `<div class="avoid"><b>${esc(a.title)}</b><span class="small">${esc(a.reason)}</span></div>`).join('') || '<p class="muted small">（沒有）</p>'}</div>
+    <div class="panel"><h2>持之以恆的通用方法</h2>${list(R.general_adherence)}</div>
+    <div class="panel"><h2>分析前設</h2>${list(R.assumptions)}</div>
+    <div class="panel"><h2>資料來源</h2>
+      ${S.length ? `<p class="small muted">以下全部是分析時實際檢索到的網頁。類型與利益衝突備註由 AI 判斷。</p><div>${S.map(s => `
+        <div class="src" id="src-${s.id}">
+          <div class="row"><span class="badge ok">[${s.id}] 已檢索</span>${s.type ? `<span class="badge">${esc(s.type)}</span>` : ''}${s.page_age ? `<span class="badge">${esc(s.page_age)}</span>` : ''}</div>
+          <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>
+          ${s.publisher ? `<span class="small muted">${esc(s.publisher)}</span>` : ''}
+          ${s.coi_note ? `<span class="small">${esc(s.coi_note)}</span>` : ''}
+        </div>`).join('')}</div>` : '<p class="small muted">這份報告沒有引用已檢索的網頁。</p>'}
+    </div>
+    ${(R.verify_list || []).length ? `<div class="panel"><h2>需自行核實</h2>${list(R.verify_list)}</div>` : ''}
+    <div class="panel"><h2>審查紀錄</h2>${list(R.review_notes)}</div>
+    <div class="panel"><h2>局限</h2>${list(R.limitations)}</div>`;
+
+  $('#copyReport').addEventListener('click', async () => {
+    const t = reportText(rep);
+    try { await navigator.clipboard.writeText(t); $('#copyMsg').textContent = '已複製'; }
+    catch { $('#copyMsg').textContent = '未能複製，請改用長按選取文字。'; }
+  });
+}
+
+function reportText(rep) {
+  const R = rep.result, S = rep.sources || [];
+  const L = [`明智選擇報告（${new Date(rep.created).toLocaleDateString('zh-HK')}）`, '', R.summary || '', ''];
+  (R.recommendations || []).forEach((r, i) => {
+    L.push(`${r.rank ?? i + 1}. ${r.title}（風險 ${r.risk_level}；置信度 ${r.confidence}）`, r.why || '');
+    (r.steps || []).forEach((s, j) => L.push(`   ${j + 1}) ${s}`));
+    L.push(`   投入：${r.time_investment}`, `   收成期：${r.payoff_horizon}`, `   止蝕點：${r.stop_loss}`, `   來源：${(r.source_ids || []).map(id => '[' + id + ']').join(' ') || '無'}`, '');
+  });
+  if (S.length) { L.push('資料來源'); S.forEach(s => L.push(`[${s.id}] ${s.title} ${s.url}`)); }
+  else L.push('（此報告未經網上搜尋，數據需自行核實）');
+  return L.join('\n');
+}
+
+/* ---------- tracker ---------- */
+function renderTrack() {
+  const area = $('#trackArea');
+  const rep = currentReport();
+  if (!rep) { area.innerHTML = '<div class="panel empty"><h2>還沒有行動計劃</h2><p>完成一次分析後，每個建議的步驟會變成可勾選的清單，方便你逐步實踐。</p></div>'; return; }
+  const done = store.get('done.' + rep.id, {});
+  const recs = rep.result.recommendations || [];
+  let total = 0, n = 0;
+  recs.forEach((r, i) => (r.steps || []).forEach((_, j) => { total++; if (done[`${i}.${j}`]) n++; }));
+  const pct = total ? Math.round(n / total * 100) : 0;
+  area.innerHTML = `
+    <div class="panel">
+      <div class="row" style="justify-content:space-between"><h2>行動進度</h2><span class="muted small" style="font-variant-numeric:tabular-nums">${n} / ${total} 步</span></div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <p class="small muted">建議每週固定一個時間回來勾選進度，並對照每項的止蝕點，決定繼續、調整還是停止。</p>
+    </div>
+    ${recs.map((r, i) => `
+      <div class="panel">
+        <h3>${esc(r.rank ?? i + 1)}. ${esc(r.title)}</h3>
+        <div class="track">${(r.steps || []).map((s, j) => `<label><input type="checkbox" id="chk-${i}-${j}" data-k="${i}.${j}" ${done[`${i}.${j}`] ? 'checked' : ''}><span>${esc(s)}</span></label>`).join('')}</div>
+        <p class="small"><b>止蝕點：</b>${esc(r.stop_loss)}</p>
+      </div>`).join('')}`;
+  area.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', () => {
+    const d = store.get('done.' + rep.id, {});
+    if (cb.checked) d[cb.dataset.k] = Date.now(); else delete d[cb.dataset.k];
+    store.set('done.' + rep.id, d); renderTrack();
+  }));
+}
+
+/* ---------- history & settings ---------- */
+function renderHistory() {
+  const hist = store.get('history', []);
+  const cur = store.get('current', null);
+  $('#histList').innerHTML = hist.length ? hist.map(r => `<button type="button" class="btn ghost" data-id="${esc(r.id)}">${r.id === cur ? '● ' : ''}${esc(new Date(r.created).toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' }))}｜${esc(r.profile.region || '')}｜${r.mode === 'api' ? '即時搜尋' : '試用'}</button>`).join('') : '<p class="small muted">（沒有）</p>';
+  $('#histList').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { store.set('current', b.dataset.id); renderReport(); show('report'); }));
+}
+$('#s-key').value = store.get('key', '');
+$('#s-model').value = store.get('model', 'claude-opus-5-5');
+$('#s-effort').value = store.get('effort', 'high');
+$('#saveKey').addEventListener('click', () => {
+  const k = $('#s-key').value.trim();
+  if (k && !k.startsWith('sk-ant-')) { $('#keyMsg').textContent = '金鑰格式看來不正確，應以 sk-ant- 開頭。'; return; }
+  store.set('key', k); store.set('model', $('#s-model').value); store.set('effort', $('#s-effort').value);
+  $('#keyMsg').textContent = '已儲存'; renderEngineNote();
+});
+$('#clearKey').addEventListener('click', () => { store.del('key'); $('#s-key').value = ''; $('#keyMsg').textContent = '已刪除'; renderEngineNote(); });
+let clearArmed = false;
+$('#clearData').addEventListener('click', () => {
+  if (!clearArmed) { clearArmed = true; $('#clearMsg').textContent = '再按一次確認刪除所有報告、進度和資料。'; return; }
+  try { Object.keys(localStorage).filter(k => k.startsWith('wc.')).forEach(k => localStorage.removeItem(k)); } catch {}
+  clearArmed = false; $('#clearMsg').textContent = '已清除'; form.reset(); $('#s-key').value = ''; renderEngineNote(); renderHistory(); renderReport();
+});
+
+/* ---------- boot ---------- */
+renderEngineNote();
+renderReport();
+show(store.get('tab', 'profile'));
+})();
+</script>
