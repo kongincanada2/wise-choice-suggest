@@ -1,5 +1,5 @@
 // Caches the app shell so it opens offline. API calls always go to the network.
-const CACHE = 'wise-choice-v1';
+const CACHE = 'wise-choice-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {

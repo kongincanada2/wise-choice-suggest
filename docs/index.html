@@ -220,7 +220,7 @@ if ('serviceWorker' in navigator && !window.claude) {
   <section class="view" id="view-settings" hidden>
     <div class="panel" id="keyPanel">
       <h2>即時網上搜尋（需要你自己的 API 金鑰）</h2>
-      <p class="small muted">安裝版會直接由你的手機連接 Anthropic 的 Claude API，並使用其網上搜尋工具。金鑰只保存在這部手機的瀏覽器內，不會傳送到其他地方。每次分析約進行 8–15 次搜尋，費用視模型與搜尋次數而定，請在 Anthropic Console 設定每月用量上限。</p>
+      <p class="small muted">安裝版會直接由你的手機連接 Anthropic 的 Claude API，使用其網上搜尋工具，並打開最多 6 個官方或原始網頁讀取全文核對關鍵數字。金鑰只保存在這部手機的瀏覽器內，不會傳送到其他地方。每次分析約進行 8–15 次搜尋，費用視模型、搜尋次數和讀取的網頁長度而定，請在 Anthropic Console 設定每月用量上限。</p>
       <div class="field"><label for="s-key">Anthropic API 金鑰</label><input type="password" id="s-key" placeholder="sk-ant-..." autocomplete="off"></div>
       <div class="grid2">
         <div class="field"><label for="s-model">模型</label><select id="s-model"><option value="claude-opus-5-5">Claude Opus 5.5（最仔細，預設）</option><option value="claude-sonnet-5-5">Claude Sonnet 5.5（較便宜、較快）</option></select></div>
@@ -357,7 +357,7 @@ const METHOD = `你是一位獨立、嚴謹、不推銷任何產品的個人策�
 const SCHEMA = `只輸出一個 JSON 物件（放在 \`\`\`json 程式碼區塊內），結構如下：
 {
   "summary": "三至五句總結：用戶目前最值得做的事與原因",
-  "situation": [{"point": "與用戶相關的地區處境重點", "source_urls": ["支持這點的網址"]}],
+  "situation": [{"point": "與用戶相關的地區處境重點", "as_of": "數據所屬日期或期間，例如 2026年7–9月", "source_urls": ["支持這點的網址"]}],
   "assumptions": ["分析所依賴的前設，例如假設收入穩定、假設未來兩年利率大致不變"],
   "recommendations": [{
     "rank": 1,
@@ -384,7 +384,7 @@ const SCHEMA = `只輸出一個 JSON 物件（放在 \`\`\`json 程式碼區塊�
   }],
   "avoid": [{"title": "常見但對此用戶不划算的選擇", "reason": "原因"}],
   "general_adherence": ["適用於所有建議的持續執行方法"],
-  "sources": [{"url": "網址", "title": "標題", "publisher": "發布者", "type": "官方｜智庫｜學術｜媒體｜商業｜網上輿論", "coi_note": "可能的利益衝突或可靠度備註"}],
+  "sources": [{"url": "網址", "title": "標題", "publisher": "發布者", "published": "發布或更新日期（看不到就留空）", "type": "官方｜智庫｜學術｜媒體｜商業｜網上輿論", "coi_note": "可能的利益衝突或可靠度備註"}],
   "verify_list": ["用戶應自行核實的資料"],
   "limitations": ["這份分析的局限"]
 }
@@ -403,14 +403,20 @@ function profileText(p) {
 function pass1Prompt(p, mode) {
   const today = new Date().toISOString().slice(0, 10);
   const research = mode === 'api'
-    ? `今天是 ${today}。請先用網上搜尋工具研究（約 8 至 15 次搜尋），範圍包括：用戶所在地區最新的就業市場與薪酬、用戶行業前景、生活成本與住屋、利率與通脹、政府資助或培訓計劃、與用戶正在考慮的選擇相關的實證（例如進修的實際回報、轉行成功率）、以及網上討論區的真實經驗（只作輔助，權重較低）。優先使用官方統計、學術研究與獨立智庫；記下每個來源的發布者與利益衝突。只可在 source_urls 與 sources 中列出你實際搜尋到的網址。`
+    ? `今天是 ${today}。請先用網上搜尋工具研究（約 8 至 15 次搜尋），範圍包括：用戶所在地區最新的就業市場與薪酬、用戶行業前景、生活成本與住屋、利率與通脹、政府資助或培訓計劃、與用戶正在考慮的選擇相關的實證（例如進修的實際回報、轉行成功率）、以及網上討論區的真實經驗（只作輔助，權重較低）。優先使用官方統計、學術研究與獨立智庫；記下每個來源的發布者與利益衝突。
+資料時效要求：
+- 搜尋時加上年份或「最新」等字眼，優先採用過去 12 個月內發布的資料。
+- 對結論依賴的關鍵數字（例如失業率、行業薪酬中位數、利率、資助金額、課程學費），用網頁讀取工具打開官方或原始發布頁面核對，不要只依賴搜尋摘要。
+- 每個處境重點都要在 as_of 寫明數據所屬日期或期間；找不到日期就寫「日期不明」。超過兩年的資料要註明「資料較舊」並降低權重。
+- 不同來源數字矛盾時，列出差異並說明採用哪一個及原因。
+只可在 source_urls 與 sources 中列出你實際搜尋或讀取到的網址。`
     : `你現在無法上網。只能使用你既有的知識推理。規則：source_urls 和 sources 一律留空陣列；不可聲稱引用了某份報告的具體數字；凡涉及數據的判斷都要寫明「基於模型既有知識，未經即時核實」；在 verify_list 詳細列出用戶應自行查核的公開資料（可寫出負責發布該類資料的機構類型或常見的官方統計部門）。置信度要相應調低。`;
   return `${METHOD}\n\n${research}\n\n用戶資料：\n${profileText(p)}\n\n${SCHEMA}`;
 }
 
 function pass2Prompt(p, draft, sources, mode) {
   const srcList = sources.length
-    ? sources.map(s => `[${s.id}] ${s.title || ''}｜${s.publisher || ''}｜${s.type || ''}｜${s.url}`).join('\n')
+    ? sources.map(s => `[${s.id}] ${s.title || ''}｜${s.publisher || ''}｜${s.type || ''}｜日期：${s.published || s.page_age || '不明'}｜${s.fetched ? '已讀取全文' : '只有搜尋摘要'}｜${s.url}`).join('\n')
     : '（沒有已檢索的來源）';
   return `${METHOD}
 
@@ -420,6 +426,7 @@ function pass2Prompt(p, draft, sources, mode) {
 - 是否違反用戶的時間、金錢、健康、家庭限制，或與其風險偏好不符；排名是否需要調整。
 - 步驟是否具體到下星期可以開始；止蝕點是否有可量度的指標。
 - 是否有倖存者偏差、忽略機會成本、或把相關當因果的推論。
+- 資料是否過時：今天是 ${new Date().toISOString().slice(0, 10)}，依賴超過兩年舊資料或日期不明資料的判斷，要降低置信度並註明；只依靠搜尋摘要（未讀取全文）的關鍵數字也要相應降低置信度。
 - 有沒有更好的選擇被遺漏；有的話可加入，但必須標明是推理而非資料支持。
 ${mode === 'api' ? '' : '- 初稿是在沒有網上搜尋的情況下寫成的；確保沒有任何網址或聲稱已核實的數字。'}
 
@@ -433,7 +440,7 @@ ${srcList}
 ${JSON.stringify(draft)}
 
 請輸出修訂後的完整 JSON（放在 \`\`\`json 程式碼區塊內），結構與初稿相同，但：
-- recommendations 及 situation 中以 "source_ids": [編號] 取代 source_urls；
+- recommendations 及 situation 中以 "source_ids": [編號] 取代 source_urls，situation 保留 as_of；
 - 不要輸出 sources 欄位；
 - 加入 "review_notes": ["你改了什麼及原因"]。`;
 }
@@ -473,7 +480,7 @@ function verifySources(draft, retrieved) {
     if (!idOf.has(key)) {
       const m = meta.get(normUrl(u)) || meta.get(key) || {};
       const id = list.length + 1;
-      list.push({ id, url: hit.url, title: hit.title || m.title || hit.url, publisher: m.publisher || '', type: m.type || '', coi_note: m.coi_note || '', page_age: hit.page_age || '' });
+      list.push({ id, url: hit.url, title: hit.title || m.title || hit.url, publisher: m.publisher || '', type: m.type || '', coi_note: m.coi_note || '', page_age: hit.page_age || '', published: m.published || '', fetched: !!hit.fetched, retrieved_at: hit.retrieved_at || '' });
       idOf.set(key, id);
     }
     return idOf.get(key);
@@ -537,7 +544,9 @@ async function streamOnce(body, onEvent, signal) {
         else if (d.type === 'citations_delta') (b.citations ||= []).push(d.citation);
       } else if (ev.type === 'content_block_stop') {
         if (partial[ev.index] != null) {
-          try { blocks[ev.index].input = partial[ev.index] ? JSON.parse(partial[ev.index]) : {}; } catch { blocks[ev.index].input = {}; }
+          // a block can arrive with its input complete in content_block_start (e.g. calls made from code execution)
+          if (partial[ev.index]) { try { blocks[ev.index].input = JSON.parse(partial[ev.index]); } catch { blocks[ev.index].input = {}; } }
+          else blocks[ev.index].input ||= {};
           onEvent?.({ kind: 'tool', block: blocks[ev.index] });
           delete partial[ev.index];
         }
@@ -564,7 +573,11 @@ async function runApi(prompt, { search, onEvent, signal }) {
       fallbacks: 'default',
       messages
     };
-    if (search) body.tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: 15 }];
+    if (search) body.tools = [
+      { type: 'web_search_20260318', name: 'web_search', max_uses: 15 },
+      // full-page reads of official sources; bypass the fetch cache so figures are current
+      { type: 'web_fetch_20260318', name: 'web_fetch', max_uses: 6, max_content_tokens: 20000, use_cache: false }
+    ];
     const { blocks, stop } = await streamOnce(body, onEvent, signal);
     for (const b of blocks) {
       if (b.type === 'text') {
@@ -573,7 +586,10 @@ async function runApi(prompt, { search, onEvent, signal }) {
       }
       if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) {
         for (const r of b.content) if (r.type === 'web_search_result' && r.url) { const n = normUrl(r.url); if (n) retrieved.set(n, { url: r.url, title: r.title, page_age: r.page_age }); }
-        onEvent?.({ kind: 'results', count: b.content.length });
+      }
+      if (b.type === 'web_fetch_tool_result' && b.content?.type === 'web_fetch_result' && b.content.url) {
+        const n = normUrl(b.content.url);
+        if (n) retrieved.set(n, { url: b.content.url, title: b.content.content?.title || retrieved.get(n)?.title, page_age: retrieved.get(n)?.page_age, retrieved_at: b.content.retrieved_at, fetched: true });
       }
     }
     if (stop === 'refusal') throw new Error('AI 拒絕處理這個請求。請調整資料中可能引起誤會的字眼後再試。');
@@ -615,7 +631,9 @@ form.addEventListener('submit', async e => {
         search: true, signal,
         onEvent: ev => {
           if (ev.kind === 'tool' && ev.block.name === 'web_search') log('搜尋：' + (ev.block.input?.query || ''));
-          if (ev.kind === 'results') log(`  取得 ${ev.count} 個結果`);
+          if (ev.kind === 'tool' && ev.block.name === 'web_fetch') log('讀取：' + (ev.block.input?.url || ''));
+          if (ev.kind === 'start' && ev.block.type === 'web_search_tool_result' && Array.isArray(ev.block.content)) log(`  取得 ${ev.block.content.length} 個結果`);
+          if (ev.kind === 'start' && ev.block.type === 'web_fetch_tool_result') log(ev.block.content?.type === 'web_fetch_result' ? '  已讀取全文：' + ev.block.content.url : '  未能讀取該網頁');
           if (ev.kind === 'text') { const before = chars; chars += ev.text.length; if (Math.floor(before / 1500) !== Math.floor(chars / 1500)) log(`撰寫初稿中（${chars} 字）`); }
         }
       });
@@ -649,7 +667,7 @@ form.addEventListener('submit', async e => {
     const report = {
       id: 'r' + Date.now(), created: new Date().toISOString(), mode,
       model: mode === 'api' ? store.get('model', 'claude-opus-5-5') : 'claude.ai',
-      profile: p, result: final, sources, droppedRefs: dropped + removedRefs, searched: r1.retrieved.size
+      profile: p, result: final, sources, droppedRefs: dropped + removedRefs, searched: r1.retrieved.size, fetchedCount: [...r1.retrieved.values()].filter(v => v.fetched).length
     };
     const hist = store.get('history', []);
     hist.unshift(report); store.set('history', hist.slice(0, 12));
@@ -696,7 +714,7 @@ function renderReport() {
   const R = rep.result, S = rep.sources || [];
   const date = new Date(rep.created).toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' });
   const modeNote = rep.mode === 'api'
-    ? `即時搜尋模式｜檢索 ${rep.searched} 個網頁，引用 ${S.length} 個${rep.droppedRefs ? `｜已刪除 ${rep.droppedRefs} 個未經檢索的引用` : ''}`
+    ? `即時搜尋模式｜檢索 ${rep.searched} 個網頁${rep.fetchedCount ? `（其中 ${rep.fetchedCount} 個讀取全文）` : ''}，引用 ${S.length} 個${rep.droppedRefs ? `｜已刪除 ${rep.droppedRefs} 個未經檢索的引用` : ''}`
     : '試用模式｜沒有即時網上搜尋，所有數據需自行核實';
   const recs = (R.recommendations || []).map((r, i) => `
     <details class="rec" ${i === 0 ? 'open' : ''}>
@@ -738,7 +756,7 @@ function renderReport() {
       <div class="row"><button type="button" class="btn ghost" id="copyReport">複製全文</button><span class="small muted" id="copyMsg"></span></div>
     </div>
     ${rep.mode !== 'api' ? '<div class="note"><strong>這份報告沒有經過網上搜尋</strong><span>內容只基於 AI 既有知識，可能過時。請先核實下面「需自行核實」一節的資料，再作決定。</span></div>' : ''}
-    <div class="panel"><h2>你的處境</h2><ul class="plain">${(R.situation || []).map(s => `<li>${esc(s.point)}${refs(s.source_ids, S)}</li>`).join('') || '<li class="muted">（未提供）</li>'}</ul></div>
+    <div class="panel"><h2>你的處境</h2><ul class="plain">${(R.situation || []).map(s => `<li>${esc(s.point)}${s.as_of ? ` <span class="badge">${esc(s.as_of)}</span>` : ''}${refs(s.source_ids, S)}</li>`).join('') || '<li class="muted">（未提供）</li>'}</ul></div>
     <h2>推薦行動排名</h2>
     ${recs || '<p class="muted">（沒有建議）</p>'}
     <div class="panel"><h2>不建議的常見選擇</h2>${(R.avoid || []).map(a => `<div class="avoid"><b>${esc(a.title)}</b><span class="small">${esc(a.reason)}</span></div>`).join('') || '<p class="muted small">（沒有）</p>'}</div>
@@ -747,7 +765,7 @@ function renderReport() {
     <div class="panel"><h2>資料來源</h2>
       ${S.length ? `<p class="small muted">以下全部是分析時實際檢索到的網頁。類型與利益衝突備註由 AI 判斷。</p><div>${S.map(s => `
         <div class="src" id="src-${s.id}">
-          <div class="row"><span class="badge ok">[${s.id}] 已檢索</span>${s.type ? `<span class="badge">${esc(s.type)}</span>` : ''}${s.page_age ? `<span class="badge">${esc(s.page_age)}</span>` : ''}</div>
+          <div class="row"><span class="badge ok">[${s.id}] ${s.fetched ? '已讀取全文' : '已檢索'}</span>${s.type ? `<span class="badge">${esc(s.type)}</span>` : ''}${s.published || s.page_age ? `<span class="badge">${esc(s.published || s.page_age)}</span>` : ''}</div>
           <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>
           ${s.publisher ? `<span class="small muted">${esc(s.publisher)}</span>` : ''}
           ${s.coi_note ? `<span class="small">${esc(s.coi_note)}</span>` : ''}
