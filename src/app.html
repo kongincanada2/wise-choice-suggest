@@ -251,9 +251,14 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 
 /* ---------- engine detection ---------- */
 const IN_ARTIFACT = !!window.claude;
-let sample = null; // artifact engine (no web access)
+const PS = 'Parallel Search'; // claude.ai connector the artifact version searches through
+let sample = null;   // artifact engine
+let mcp = null, perms = null;
+let pageTools = false;        // this view can run page tools inside sample()
+let connector = 'unknown';    // 'present' | 'absent' | 'unknown'
 const engine = () => {
   if (!IN_ARTIFACT && store.get('key', '')) return 'api';
+  if (sample && mcp && pageTools && connector !== 'absent') return 'web';
   if (sample) return 'sample';
   return 'none';
 };
@@ -263,9 +268,14 @@ function renderEngineNote() {
   if (e === 'api') {
     $('#modeLabel').textContent = '即時搜尋模式';
     note.innerHTML = '<strong>即時搜尋模式</strong><span>分析時會實際搜尋網上公開資料，報告只引用檢索到的頁面。一次完整分析通常需時數分鐘。</span>';
+  } else if (e === 'web') {
+    $('#modeLabel').textContent = '線上搜尋模式';
+    note.innerHTML = `<strong>線上搜尋模式（經 ${PS}）</strong><span>分析時會經你在 claude.ai 連接的 ${PS} 搜尋並讀取網頁，報告只引用實際取得的頁面。第一次分析時會請你允許此頁使用 Claude 和該連接器。一次完整分析通常需時數分鐘。</span>`;
   } else if (e === 'sample') {
     $('#modeLabel').textContent = '試用模式';
-    note.innerHTML = '<strong>試用模式：沒有即時網上搜尋</strong><span>在 claude.ai 內開啟時，AI 不能上網，只能用其既有知識推理。報告不會列出網址，所有數據都標示為「需自行核實」。需要真正的網上研究，請使用安裝版並在「設定與說明」輸入 API 金鑰。</span>';
+    note.innerHTML = IN_ARTIFACT && connector === 'absent'
+      ? `<strong>試用模式：未連接網上搜尋</strong><span>請在 claude.ai 的 Settings → Connectors 連接「${PS}」，然後重新整理此頁，分析便會上網搜尋。未連接前，AI 只能用既有知識推理，報告不會列出網址，所有數據都標示為「需自行核實」。</span>`
+      : '<strong>試用模式：沒有即時網上搜尋</strong><span>AI 只能用其既有知識推理。報告不會列出網址，所有數據都標示為「需自行核實」。</span>';
   } else {
     $('#modeLabel').textContent = '';
     note.innerHTML = IN_ARTIFACT
@@ -276,7 +286,20 @@ function renderEngineNote() {
   $('#runBtn').disabled = e === 'none';
 }
 if (IN_ARTIFACT) {
-  window.claude.use('sample').then(s => { sample = s; renderEngineNote(); }).catch(() => renderEngineNote());
+  window.claude.use('sample').then(async s => {
+    sample = s;
+    try { pageTools = !!(await s?.limits())?.tools; } catch { pageTools = false; }
+    renderEngineNote();
+  }).catch(() => renderEngineNote());
+  window.claude.use('mcp').then(async m => {
+    mcp = m;
+    if (m) {
+      try { const r = await m.listTools(PS); connector = r.servers.some(x => x.server === PS) ? 'present' : 'absent'; }
+      catch (e) { connector = e?.code === 'server_not_connected' ? 'absent' : 'unknown'; }
+    }
+    renderEngineNote();
+  }).catch(() => renderEngineNote());
+  window.claude.use('permissions').then(x => { perms = x; }).catch(() => {});
 }
 
 /* ---------- tabs ---------- */
@@ -390,6 +413,13 @@ function pass1Prompt(p, mode) {
 - 每個處境重點都要在 as_of 寫明數據所屬日期或期間；找不到日期就寫「日期不明」。超過兩年的資料要註明「資料較舊」並降低權重。
 - 不同來源數字矛盾時，列出差異並說明採用哪一個及原因。
 只可在 source_urls 與 sources 中列出你實際搜尋或讀取到的網址。`
+    : mode === 'web'
+    ? `今天是 ${today}。你有兩個工具：web_search（搜尋）和 web_fetch（讀取網頁全文）。工具調用的輪數有限，請這樣安排：
+- 第一輪：同時發出 5 至 6 個不同主題的搜尋，範圍包括用戶所在地區最新的就業市場與薪酬、用戶行業前景、生活成本與住屋、利率與通脹、政府資助或培訓計劃、與用戶正在考慮的選擇相關的實證（例如進修的實際回報、轉行成功率）。搜尋字眼加上年份或「最新」。
+- 第二輪：同時用 web_fetch 打開 2 至 4 個最關鍵的官方或原始頁面，核對結論依賴的數字；如有需要可同時補充一兩個搜尋。
+- 之後直接寫報告，不要再調用工具。
+優先使用官方統計、學術研究與獨立智庫，網上討論區只作輔助；記下每個來源的發布者與利益衝突。每個處境重點都要在 as_of 寫明數據所屬日期或期間（找不到就寫「日期不明」），超過兩年的資料要註明並降低權重；不同來源數字矛盾時說明採用哪一個。
+只可在 source_urls 與 sources 中列出工具結果中實際出現過的網址。`
     : `你現在無法上網。只能使用你既有的知識推理。規則：source_urls 和 sources 一律留空陣列；不可聲稱引用了某份報告的具體數字；凡涉及數據的判斷都要寫明「基於模型既有知識，未經即時核實」；在 verify_list 詳細列出用戶應自行查核的公開資料（可寫出負責發布該類資料的機構類型或常見的官方統計部門）。置信度要相應調低。`;
   return `${METHOD}\n\n${research}\n\n用戶資料：\n${profileText(p)}\n\n${SCHEMA}`;
 }
@@ -408,7 +438,7 @@ function pass2Prompt(p, draft, sources, mode) {
 - 是否有倖存者偏差、忽略機會成本、或把相關當因果的推論。
 - 資料是否過時：今天是 ${new Date().toISOString().slice(0, 10)}，依賴超過兩年舊資料或日期不明資料的判斷，要降低置信度並註明；只依靠搜尋摘要（未讀取全文）的關鍵數字也要相應降低置信度。
 - 有沒有更好的選擇被遺漏；有的話可加入，但必須標明是推理而非資料支持。
-${mode === 'api' ? '' : '- 初稿是在沒有網上搜尋的情況下寫成的；確保沒有任何網址或聲稱已核實的數字。'}
+${mode === 'api' || mode === 'web' ? '' : '- 初稿是在沒有網上搜尋的情況下寫成的；確保沒有任何網址或聲稱已核實的數字。'}
 
 用戶資料：
 ${profileText(p)}
@@ -580,9 +610,95 @@ async function runApi(prompt, { search, onEvent, signal }) {
   throw new Error('搜尋步驟過多，請再試一次。');
 }
 
-async function runSample(prompt, { onText, signal }) {
-  const r = await sample(prompt, { modelTier: 'complex', cache: false, signal, onText: onText ? ({ text }) => onText(text) : undefined });
-  return { text: r.text, retrieved: new Map() };
+async function runSample(prompt, { onText, signal, tools, retrieved }) {
+  const opts = { modelTier: 'complex', cache: false, signal, onText: onText ? ({ text }) => onText(text) : undefined };
+  if (tools?.length) opts.tools = tools;
+  const r = await sample(prompt, opts);
+  return { text: r.text, retrieved: retrieved || new Map() };
+}
+
+/* ---------- web tools through the Parallel Search connector (claude.ai version) ---------- */
+const mcpErrText = e => ({
+  server_not_connected: `未連接 ${PS}，請在 claude.ai 的 Settings → Connectors 連接`,
+  needs_reauth: `${PS} 需要重新連接，請到 claude.ai 的 Settings → Connectors`,
+  not_in_manifest: `你未允許此頁使用 ${PS}`,
+  approval_required: `需要你允許此頁使用 ${PS}`,
+  blocked_by_policy: '你的機構不允許使用這個連接器',
+  selection_required: `你有多於一個 ${PS} 連接器，請在提示中選擇一個`,
+  server_unavailable: `${PS} 暫時無法連線`,
+  bad_request: '這個介面未能讀取連接器的工具說明'
+}[e?.code] || (e?.message ? `連接器出錯：${e.message}` : '連接器出錯'));
+
+// Record every URL a tool result actually contains, so the report can only cite pages that were retrieved.
+function collectUrls(node, retrieved, fetched, depth = 0) {
+  if (node == null || depth > 8) return;
+  if (Array.isArray(node)) { node.forEach(x => collectUrls(x, retrieved, fetched, depth + 1)); return; }
+  if (typeof node !== 'object') return;
+  const u = typeof node.url === 'string' ? node.url : typeof node.link === 'string' ? node.link : null;
+  const n = u && normUrl(u);
+  if (n) {
+    const prev = retrieved.get(n) || {};
+    const date = node.publish_date || node.published_date || node.date || node.page_age;
+    retrieved.set(n, { url: u, title: prev.title || (typeof node.title === 'string' ? node.title : ''), page_age: prev.page_age || (typeof date === 'string' ? date : ''), fetched: prev.fetched || fetched });
+  }
+  for (const v of Object.values(node)) if (v && typeof v === 'object') collectUrls(v, retrieved, fetched, depth + 1);
+}
+function urlsIn(node, out = []) {
+  if (typeof node === 'string') { if (normUrl(node)) out.push(node); }
+  else if (Array.isArray(node)) node.forEach(x => urlsIn(x, out));
+  else if (node && typeof node === 'object') Object.values(node).forEach(x => urlsIn(x, out));
+  return out;
+}
+// Keep tool results small: sample() allows 32 KB per result and re-reads every round.
+function compact(payload, maxStr, maxTotal) {
+  const prune = (x, d = 0) => {
+    if (typeof x === 'string') return x.length > maxStr ? x.slice(0, maxStr) + '…' : x;
+    if (Array.isArray(x)) return x.slice(0, 10).map(y => prune(y, d + 1));
+    if (x && typeof x === 'object' && d < 8) return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, prune(v, d + 1)]));
+    return x;
+  };
+  const s = typeof payload === 'string' ? payload : JSON.stringify(prune(payload));
+  return s.length > maxTotal ? s.slice(0, maxTotal) + '…（已截短）' : s;
+}
+const TOOL_DESC = {
+  web_search: '搜尋網上公開資料，回傳結果（含網址、標題、摘要或節錄）。可在同一輪同時呼叫多次以搜尋不同主題。',
+  web_fetch: '讀取指定網址的網頁全文或節錄，用於核對官方統計等關鍵數字。只讀取搜尋結果中出現過的網址。'
+};
+async function prepareWebTools(retrieved) {
+  const names = ['web_search', 'web_fetch'];
+  const describe = () => Promise.all(names.map(n => mcp.describeTool(PS, n).catch(error => ({ error }))));
+  let descs = await describe();
+  if (descs.some(d => d.error?.code === 'not_in_manifest' || d.error?.code === 'approval_required') && perms) {
+    await perms.request(['mcp:' + PS]).catch(() => ({}));
+    descs = await describe();
+  }
+  const tools = [];
+  names.forEach((name, i) => {
+    const d = descs[i];
+    if (d.error || !d.inputSchema || d.inputSchema.type !== 'object' || JSON.stringify(d.inputSchema).length > 4000) return;
+    const fetched = name === 'web_fetch';
+    tools.push({
+      name,
+      description: (TOOL_DESC[name] + ' ' + (d.description || '')).slice(0, 1000),
+      inputSchema: d.inputSchema,
+      async execute(input, ctx) {
+        const shown = urlsIn(input).concat(Object.values(input || {}).flat().filter(v => typeof v === 'string' && !normUrl(v))).join('；').slice(0, 140);
+        log((fetched ? '讀取：' : '搜尋：') + shown);
+        let r;
+        try { r = await mcp.callTool(PS, name, input, { signal: ctx.signal, cache: false }); }
+        catch (e) { log('  ' + mcpErrText(e)); throw new Error(e?.code || 'tool_error'); }
+        const payload = r.payload ?? (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+        const before = retrieved.size;
+        collectUrls(payload, retrieved, fetched);
+        if (fetched && payload && String(typeof payload === 'string' ? payload : JSON.stringify(payload)).length > 200) {
+          for (const u of urlsIn(input)) { const n = normUrl(u); if (n) retrieved.set(n, { ...(retrieved.get(n) || { url: u, title: '' }), fetched: true }); }
+        }
+        log(fetched ? '  已讀取' : `  取得 ${retrieved.size - before} 個新網址`);
+        return compact(payload, fetched ? 6000 : 1200, fetched ? 14000 : 9000);
+      }
+    });
+  });
+  return { tools, error: descs.find(d => d.error)?.error };
 }
 
 /* ---------- run analysis ---------- */
@@ -595,7 +711,7 @@ form.addEventListener('submit', async e => {
   if (!p.region) { $('#runHint').textContent = '請至少填寫所在地區。'; return; }
   if (!(p.goals || []).length) { $('#runHint').textContent = '請至少選一個目標。'; return; }
   $('#runHint').textContent = '';
-  const mode = engine();
+  let mode = engine();
   if (mode === 'none') return;
   controller = new AbortController();
   const signal = controller.signal;
@@ -604,6 +720,19 @@ form.addEventListener('submit', async e => {
   $('#progressPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   try {
     let r1;
+    if (mode === 'web') {
+      log(`準備經 ${PS} 搜尋……`);
+      const retrieved = new Map();
+      const { tools, error } = await prepareWebTools(retrieved);
+      if (tools.some(x => x.name === 'web_search')) {
+        let last = 0;
+        r1 = await runSample(pass1Prompt(p, mode), { signal, tools, retrieved, onText: t => { if (t.length - last > 1500) { last = t.length; log(`撰寫初稿中（${t.length} 字）`); } } });
+        log(`共取得 ${retrieved.size} 個不同網頁。`);
+      } else {
+        log(`未能使用 ${PS}（${mcpErrText(error)}），改用沒有網上搜尋的試用模式。`);
+        mode = 'sample';
+      }
+    }
     if (mode === 'api') {
       log('開始搜尋公開資料……');
       let chars = 0;
@@ -618,7 +747,7 @@ form.addEventListener('submit', async e => {
         }
       });
       log(`共檢索 ${r1.retrieved.size} 個不同網頁。`);
-    } else {
+    } else if (!r1) {
       log('試用模式：沒有網上搜尋，以既有知識推理。');
       let last = 0;
       r1 = await runSample(pass1Prompt(p, mode), { signal, onText: t => { if (t.length - last > 1500) { last = t.length; log(`撰寫初稿中（${t.length} 字）`); } } });
@@ -693,8 +822,9 @@ function renderReport() {
   }
   const R = rep.result, S = rep.sources || [];
   const date = new Date(rep.created).toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' });
-  const modeNote = rep.mode === 'api'
-    ? `即時搜尋模式｜檢索 ${rep.searched} 個網頁${rep.fetchedCount ? `（其中 ${rep.fetchedCount} 個讀取全文）` : ''}，引用 ${S.length} 個${rep.droppedRefs ? `｜已刪除 ${rep.droppedRefs} 個未經檢索的引用` : ''}`
+  const online = rep.mode === 'api' || rep.mode === 'web';
+  const modeNote = online
+    ? `${rep.mode === 'web' ? `線上搜尋模式（${PS}）` : '即時搜尋模式'}｜檢索 ${rep.searched} 個網頁${rep.fetchedCount ? `（其中 ${rep.fetchedCount} 個讀取全文）` : ''}，引用 ${S.length} 個${rep.droppedRefs ? `｜已刪除 ${rep.droppedRefs} 個未經檢索的引用` : ''}`
     : '試用模式｜沒有即時網上搜尋，所有數據需自行核實';
   const recs = (R.recommendations || []).map((r, i) => `
     <details class="rec" ${i === 0 ? 'open' : ''}>
@@ -735,7 +865,7 @@ function renderReport() {
       <p class="small muted">${esc(modeNote)}</p>
       <div class="row"><button type="button" class="btn ghost" id="copyReport">複製全文</button><span class="small muted" id="copyMsg"></span></div>
     </div>
-    ${rep.mode !== 'api' ? '<div class="note"><strong>這份報告沒有經過網上搜尋</strong><span>內容只基於 AI 既有知識，可能過時。請先核實下面「需自行核實」一節的資料，再作決定。</span></div>' : ''}
+    ${!online ? '<div class="note"><strong>這份報告沒有經過網上搜尋</strong><span>內容只基於 AI 既有知識，可能過時。請先核實下面「需自行核實」一節的資料，再作決定。</span></div>' : ''}
     <div class="panel"><h2>你的處境</h2><ul class="plain">${(R.situation || []).map(s => `<li>${esc(s.point)}${s.as_of ? ` <span class="badge">${esc(s.as_of)}</span>` : ''}${refs(s.source_ids, S)}</li>`).join('') || '<li class="muted">（未提供）</li>'}</ul></div>
     <h2>推薦行動排名</h2>
     ${recs || '<p class="muted">（沒有建議）</p>'}
@@ -808,7 +938,7 @@ function renderTrack() {
 function renderHistory() {
   const hist = store.get('history', []);
   const cur = store.get('current', null);
-  $('#histList').innerHTML = hist.length ? hist.map(r => `<button type="button" class="btn ghost" data-id="${esc(r.id)}">${r.id === cur ? '● ' : ''}${esc(new Date(r.created).toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' }))}｜${esc(r.profile.region || '')}｜${r.mode === 'api' ? '即時搜尋' : '試用'}</button>`).join('') : '<p class="small muted">（沒有）</p>';
+  $('#histList').innerHTML = hist.length ? hist.map(r => `<button type="button" class="btn ghost" data-id="${esc(r.id)}">${r.id === cur ? '● ' : ''}${esc(new Date(r.created).toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' }))}｜${esc(r.profile.region || '')}｜${r.mode === 'api' || r.mode === 'web' ? '線上搜尋' : '試用'}</button>`).join('') : '<p class="small muted">（沒有）</p>';
   $('#histList').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { store.set('current', b.dataset.id); renderReport(); show('report'); }));
 }
 $('#s-key').value = store.get('key', '');
